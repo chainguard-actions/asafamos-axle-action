@@ -1,0 +1,43 @@
+name: Test fail-on none never fails build
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          url: "https://example.com"
+          fail-on: "none"
+          comment-on-pr: "false"
+          with-ai-fixes: "false"
+
+      - name: Assert failing is false when fail-on is none
+        env:
+          ACTUAL: ${{ steps.action.outputs.failing }}
+        run: |
+          echo "actual failing: $ACTUAL"
+          if [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: expected failing='false' when fail-on=none, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: failing=false as expected with fail-on=none"
+
+      - name: Assert JSON report is valid JSON
+        env:
+          JSON_PATH: ${{ steps.action.outputs.json-path }}
+        run: |
+          echo "checking JSON validity at: $JSON_PATH"
+          if [ ! -f "$JSON_PATH" ]; then
+            echo "FAIL: JSON report file not found at $JSON_PATH"
+            exit 1
+          fi
+          if ! python3 -c "import json, sys; json.load(open('$JSON_PATH'))" 2>/dev/null; then
+            echo "FAIL: JSON report is not valid JSON"
+            cat "$JSON_PATH" || true
+            exit 1
+          fi
+          echo "PASS: JSON report is valid JSON"

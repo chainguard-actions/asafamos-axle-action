@@ -1,0 +1,71 @@
+name: Test basic scan with public URL
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          url: "https://example.com"
+          fail-on: "none"
+          comment-on-pr: "false"
+          with-ai-fixes: "false"
+
+      - name: Assert json-path output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.json-path }}
+        run: |
+          echo "actual json-path: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: json-path output is empty"
+            exit 1
+          fi
+          echo "PASS: json-path=$ACTUAL"
+
+      - name: Assert markdown-path output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.markdown-path }}
+        run: |
+          echo "actual markdown-path: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: markdown-path output is empty"
+            exit 1
+          fi
+          echo "PASS: markdown-path=$ACTUAL"
+
+      - name: Assert failing output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.failing }}
+        run: |
+          echo "actual failing: $ACTUAL"
+          if [ "$ACTUAL" != "true" ] && [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: failing output should be 'true' or 'false', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: failing=$ACTUAL"
+
+      - name: Assert json report file exists
+        env:
+          JSON_PATH: ${{ steps.action.outputs.json-path }}
+        run: |
+          echo "checking: $JSON_PATH"
+          if [ ! -f "$JSON_PATH" ]; then
+            echo "FAIL: JSON report file not found at $JSON_PATH"
+            exit 1
+          fi
+          echo "PASS: JSON report file exists"
+
+      - name: Assert markdown report file exists
+        env:
+          MD_PATH: ${{ steps.action.outputs.markdown-path }}
+        run: |
+          echo "checking: $MD_PATH"
+          if [ ! -f "$MD_PATH" ]; then
+            echo "FAIL: Markdown report file not found at $MD_PATH"
+            exit 1
+          fi
+          echo "PASS: Markdown report file exists"
