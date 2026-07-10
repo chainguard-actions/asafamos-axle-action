@@ -8,6 +8,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 | Version | Tag | Upstream commit |
 |---------|-----|-----------------|
+| v1.0.0 | [`v1.0.0`](https://github.com/chainguard-actions/asafamos-axle-action/tree/v1.0.0) | [`434cb2d`](https://github.com/asafamos/axle-action/commit/434cb2da7e435dbe31ce47803ef84fbe3e13b910) |
 | v1.1.0 | [`v1.1.0`](https://github.com/chainguard-actions/asafamos-axle-action/tree/v1.1.0) | [`263a2bd`](https://github.com/asafamos/axle-action/commit/263a2bd53a7d5e092393679924efec0e46e14053) |
 
 ## Privacy
