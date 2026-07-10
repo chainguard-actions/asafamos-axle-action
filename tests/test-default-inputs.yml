@@ -1,0 +1,77 @@
+name: Test axle with default inputs (no URL)
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a minimal project for the action to build and start
+        run: |
+          # Create a minimal package.json so npm ci and npm run build succeed
+          cat > "$GITHUB_WORKSPACE/package.json" << 'EOF'
+          {
+            "name": "axle-test-project",
+            "version": "1.0.0",
+            "scripts": {
+              "build": "echo 'build done'",
+              "start": "python3 -m http.server 3000 --directory site"
+            }
+          }
+          EOF
+          # Create a minimal site directory with an HTML page
+          mkdir -p "$GITHUB_WORKSPACE/site"
+          cat > "$GITHUB_WORKSPACE/site/index.html" << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head><meta charset="UTF-8"><title>Test</title></head>
+          <body><h1>Hello</h1></body>
+          </html>
+          EOF
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          install-command: "echo 'skip install'"
+          build-command: "npm run build"
+          start-command: "python3 -m http.server 3000 --directory $GITHUB_WORKSPACE/site"
+          wait-on-port: "3000"
+          fail-on: "critical"
+          with-ai-fixes: "false"
+          comment-on-pr: "false"
+
+      - name: Assert json-path output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.json-path }}
+        run: |
+          echo "actual json-path: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: json-path output was not set"
+            exit 1
+          fi
+          echo "PASS: json-path is set to $ACTUAL"
+
+      - name: Assert markdown-path output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.markdown-path }}
+        run: |
+          echo "actual markdown-path: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: markdown-path output was not set"
+            exit 1
+          fi
+          echo "PASS: markdown-path is set to $ACTUAL"
+
+      - name: Assert failing output is set to a boolean string
+        env:
+          ACTUAL: ${{ steps.action.outputs.failing }}
+        run: |
+          echo "actual failing: $ACTUAL"
+          if [ "$ACTUAL" != "true" ] && [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: expected failing to be 'true' or 'false', got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: failing output is '$ACTUAL'"

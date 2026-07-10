@@ -1,0 +1,55 @@
+name: Test anthropic-api-key input coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          url: "https://example.com"
+          fail-on: "none"
+          with-ai-fixes: "false"
+          anthropic-api-key: "dummy-api-key-for-coverage"
+          anthropic-model: "claude-sonnet-4-6"
+          comment-on-pr: "false"
+        continue-on-error: true
+
+      - name: Assert json-path output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.json-path }}
+        run: |
+          echo "actual json-path: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: expected json-path output to be set"
+            exit 1
+          fi
+          echo "PASS: json-path is set to $ACTUAL"
+
+      - name: Assert markdown-path output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.markdown-path }}
+        run: |
+          echo "actual markdown-path: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: expected markdown-path output to be set"
+            exit 1
+          fi
+          echo "PASS: markdown-path is set to $ACTUAL"
+
+      - name: Assert failing output is set
+        env:
+          ACTUAL: ${{ steps.action.outputs.failing }}
+        run: |
+          echo "actual failing: $ACTUAL"
+          if [ "$ACTUAL" != "true" ] && [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: expected failing output to be 'true' or 'false', got: $ACTUAL"
+            exit 1
+          fi
+          echo "PASS: failing output is $ACTUAL"

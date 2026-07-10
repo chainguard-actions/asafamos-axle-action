@@ -1,0 +1,48 @@
+{
+  "name": "@axle/cli",
+  "version": "0.1.0",
+  "description": "Accessibility compliance CI — scan URLs for WCAG 2.1/2.2 AA violations and generate AI code fixes with Claude.",
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "wcag",
+    "axe-core",
+    "compliance",
+    "ci",
+    "eaa"
+  ],
+  "license": "MIT",
+  "author": "axle",
+  "homepage": "https://github.com/asafamos/axle",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asafamos/axle.git",
+    "directory": "packages/axle-cli"
+  },
+  "bin": {
+    "axle": "./dist/axle.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
+    "axe-core": "^4.11.3",
+    "playwright": "^1.59.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/axle.js",
+    "dev": "tsx src/axle.ts",
+    "prepublishOnly": "npm run build"
+  }
+}

@@ -1,0 +1,216 @@
+name: "axle — Accessibility Compliance CI"
+description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+author: "axle"
+branding:
+  icon: shield
+  color: green
+inputs:
+  url:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: ""
+  fail-on:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: "serious"
+  with-ai-fixes:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: "false"
+  max-ai-fixes:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: "10"
+  anthropic-api-key:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+  anthropic-model:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: "claude-sonnet-4-6"
+  github-token:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: ${{ github.token }}
+  comment-on-pr:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: "true"
+  install-command:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: "npm ci"
+  build-command:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: "npm run build"
+  start-command:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: "npm start"
+  wait-on-port:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    required: false
+    default: "3000"
+outputs:
+  json-path:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    value: ${{ steps.run.outputs.json-path }}
+  markdown-path:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    value: ${{ steps.run.outputs.markdown-path }}
+  failing:
+    description: "Scan every PR for WCAG 2.1/2.2 AA. AI code fixes via Claude. Comment inline. Block merge. No overlay widgets."
+    value: ${{ steps.run.outputs.failing }}
+runs:
+  using: composite
+  steps:
+    - name: Chainguard usage telemetry
+      shell: bash
+      run: |
+        # Best-effort, fails open. Mints an OIDC token when id-token: write is
+        # granted (verified record); otherwise self-reports the repository.
+        tok=""
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          tok=$(curl -sf --max-time 2 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=actions.chainguard.dev" \
+            | sed -n 's/.*"value":"\([^"]*\)".*/\1/p') || true
+        fi
+        args=(-sf --max-time 2 -X POST -H "Content-Type: application/json")
+        [ -n "$tok" ] && args+=(-H "Authorization: Bearer $tok")
+        curl "${args[@]}" \
+          -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
+          "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: "22"
+    - name: Resolve axle CLI package root
+      id: axle-pkg
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        # Composite actions expose their own source tree via github.action_path.
+        # The CLI bundle ships next to this action.yml under ./cli.
+        safe=$(printf '%s' "$ACTION_PATH" | tr -d '\n\r')
+        echo "dir=${safe}/cli" >> "$GITHUB_OUTPUT"
+    - name: Install axle CLI dependencies
+      shell: bash
+      working-directory: ${{ steps.axle-pkg.outputs.dir }}
+      run: npm ci --omit=optional
+    - name: Cache Playwright browsers
+      id: pw
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: axle-playwright-${{ runner.os }}-${{ hashFiles(format('{0}/package-lock.json', steps.axle-pkg.outputs.dir)) }}
+    - name: Install Chromium (cache miss)
+      if: steps.pw.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ steps.axle-pkg.outputs.dir }}
+      run: npx playwright install chromium --with-deps
+    - name: Install Chromium system deps (cache hit)
+      if: steps.pw.outputs.cache-hit == 'true'
+      shell: bash
+      working-directory: ${{ steps.axle-pkg.outputs.dir }}
+      run: npx playwright install-deps chromium
+    - name: Build + start host project (when url is empty)
+      if: inputs.url == ''
+      shell: bash
+      env:
+        INSTALL_COMMAND: ${{ inputs.install-command }}
+        BUILD_COMMAND: ${{ inputs.build-command }}
+        START_COMMAND: ${{ inputs.start-command }}
+        WAIT_ON_PORT: ${{ inputs.wait-on-port }}
+      run: |
+        bash -c "$INSTALL_COMMAND"
+        bash -c "$BUILD_COMMAND"
+        nohup bash -c "$START_COMMAND" > axle-server.log 2>&1 &
+        echo $! > axle-server.pid
+        npx --yes wait-on "http://localhost:$WAIT_ON_PORT" --timeout 90000
+    - name: Scan
+      id: run
+      shell: bash
+      working-directory: ${{ steps.axle-pkg.outputs.dir }}
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        ANTHROPIC_MODEL: ${{ inputs.anthropic-model }}
+        INPUT_URL: ${{ inputs.url }}
+        INPUT_WAIT_ON_PORT: ${{ inputs.wait-on-port }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_WITH_AI_FIXES: ${{ inputs.with-ai-fixes }}
+        INPUT_MAX_AI_FIXES: ${{ inputs.max-ai-fixes }}
+      run: |
+        TARGET="$INPUT_URL"
+        if [ -z "$TARGET" ]; then
+          TARGET="http://localhost:$INPUT_WAIT_ON_PORT"
+        fi
+        set +e
+        node dist/ci-scan.js \
+          --url "$TARGET" \
+          --fail-on "$INPUT_FAIL_ON" \
+          --with-ai-fixes "$INPUT_WITH_AI_FIXES" \
+          --max-ai-fixes "$INPUT_MAX_AI_FIXES" \
+          --json-out "$GITHUB_WORKSPACE/axle-report.json" \
+          --markdown-out "$GITHUB_WORKSPACE/axle-report.md"
+        rc=$?
+        set -e
+        echo "json-path=$GITHUB_WORKSPACE/axle-report.json" >> "$GITHUB_OUTPUT"
+        echo "markdown-path=$GITHUB_WORKSPACE/axle-report.md" >> "$GITHUB_OUTPUT"
+        if [ $rc -eq 1 ]; then
+          echo "failing=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "failing=false" >> "$GITHUB_OUTPUT"
+        fi
+        exit $rc
+    - name: Stop host project
+      if: always() && inputs.url == ''
+      shell: bash
+      run: |
+        if [ -f axle-server.pid ]; then
+          kill "$(cat axle-server.pid)" 2>/dev/null || true
+        fi
+    - name: Upload report
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: axle-report-${{ github.run_id }}
+        path: |
+          axle-report.json
+          axle-report.md
+          axle-server.log
+    - name: Comment on PR
+      if: always() && github.event_name == 'pull_request' && inputs.comment-on-pr == 'true'
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require("fs");
+          const p = `${process.env.GITHUB_WORKSPACE}/axle-report.md`;
+          if (!fs.existsSync(p)) {
+            core.warning("axle: no report to comment with");
+            return;
+          }
+          const body = fs.readFileSync(p, "utf8");
+          const marker = "<!-- axle-report -->";
+          const fullBody = `${marker}\n${body}`;
+          const { data: comments } = await github.rest.issues.listComments({
+            ...context.repo,
+            issue_number: context.issue.number,
+            per_page: 100,
+          });
+          const existing = comments.find((c) => c.body?.includes(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({
+              ...context.repo,
+              comment_id: existing.id,
+              body: fullBody,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: fullBody,
+            });
+          }
