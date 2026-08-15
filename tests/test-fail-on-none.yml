@@ -1,4 +1,4 @@
-name: Test fail-on none never fails build
+name: Test fail-on none produces failing=false
 on:
   workflow_dispatch:
 jobs:
@@ -7,7 +7,8 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - id: action
+      - name: Run axle scan with fail-on none
+        id: action
         uses: .
         with:
           url: "https://example.com"
@@ -17,27 +18,11 @@ jobs:
 
       - name: Assert failing is false when fail-on is none
         env:
-          ACTUAL: ${{ steps.action.outputs.failing }}
+          FAILING: ${{ steps.action.outputs.failing }}
         run: |
-          echo "actual failing: $ACTUAL"
-          if [ "$ACTUAL" != "false" ]; then
-            echo "FAIL: expected failing='false' when fail-on=none, got '$ACTUAL'"
+          echo "failing: $FAILING"
+          if [ "$FAILING" != "false" ]; then
+            echo "FAIL: expected failing=false when fail-on=none, got: $FAILING"
             exit 1
           fi
           echo "PASS: failing=false as expected with fail-on=none"
-
-      - name: Assert JSON report is valid JSON
-        env:
-          JSON_PATH: ${{ steps.action.outputs.json-path }}
-        run: |
-          echo "checking JSON validity at: $JSON_PATH"
-          if [ ! -f "$JSON_PATH" ]; then
-            echo "FAIL: JSON report file not found at $JSON_PATH"
-            exit 1
-          fi
-          if ! python3 -c "import json, sys; json.load(open('$JSON_PATH'))" 2>/dev/null; then
-            echo "FAIL: JSON report is not valid JSON"
-            cat "$JSON_PATH" || true
-            exit 1
-          fi
-          echo "PASS: JSON report is valid JSON"

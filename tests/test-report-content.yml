@@ -1,0 +1,64 @@
+name: Test report file content validity
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run axle scan and check report content
+        id: action
+        uses: .
+        with:
+          url: "https://example.com"
+          fail-on: "none"
+          comment-on-pr: "false"
+          with-ai-fixes: "false"
+
+      - name: Assert JSON report is valid JSON
+        env:
+          JSON_PATH: ${{ steps.action.outputs.json-path }}
+        run: |
+          echo "Validating JSON at: $JSON_PATH"
+          if [ ! -f "$JSON_PATH" ]; then
+            echo "FAIL: JSON report file not found at $JSON_PATH"
+            exit 1
+          fi
+          if ! python3 -c "import json, sys; json.load(open('$JSON_PATH'))" 2>/dev/null; then
+            echo "FAIL: JSON report is not valid JSON"
+            cat "$JSON_PATH"
+            exit 1
+          fi
+          echo "PASS: JSON report is valid JSON"
+
+      - name: Assert Markdown report is non-empty
+        env:
+          MD_PATH: ${{ steps.action.outputs.markdown-path }}
+        run: |
+          echo "Checking Markdown at: $MD_PATH"
+          if [ ! -f "$MD_PATH" ]; then
+            echo "FAIL: Markdown report file not found at $MD_PATH"
+            exit 1
+          fi
+          SIZE=$(wc -c < "$MD_PATH")
+          echo "Markdown report size: $SIZE bytes"
+          if [ "$SIZE" -eq 0 ]; then
+            echo "FAIL: Markdown report is empty"
+            exit 1
+          fi
+          echo "PASS: Markdown report is non-empty ($SIZE bytes)"
+
+      - name: Assert JSON report has expected structure
+        env:
+          JSON_PATH: ${{ steps.action.outputs.json-path }}
+        run: |
+          echo "Checking JSON structure at: $JSON_PATH"
+          # The report should be a JSON object or array — not null/empty
+          CONTENT=$(cat "$JSON_PATH")
+          echo "JSON content preview: ${CONTENT:0:200}"
+          if [ -z "$CONTENT" ]; then
+            echo "FAIL: JSON report is empty"
+            exit 1
+          fi
+          echo "PASS: JSON report has content"

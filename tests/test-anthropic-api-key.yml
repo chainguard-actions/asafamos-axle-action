@@ -1,0 +1,55 @@
+name: Test anthropic-api-key input coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          url: "https://example.com"
+          fail-on: "none"
+          with-ai-fixes: "false"
+          anthropic-api-key: "sk-ant-test-key-for-coverage-only"
+          comment-on-pr: "false"
+
+      - name: Assert json-path output is set
+        env:
+          JSON_PATH: ${{ steps.action.outputs.json-path }}
+        run: |
+          echo "json-path: $JSON_PATH"
+          if [ -z "$JSON_PATH" ]; then
+            echo "FAIL: json-path output was not set"
+            exit 1
+          fi
+          echo "PASS: json-path is set to $JSON_PATH"
+
+      - name: Assert markdown-path output is set
+        env:
+          MARKDOWN_PATH: ${{ steps.action.outputs.markdown-path }}
+        run: |
+          echo "markdown-path: $MARKDOWN_PATH"
+          if [ -z "$MARKDOWN_PATH" ]; then
+            echo "FAIL: markdown-path output was not set"
+            exit 1
+          fi
+          echo "PASS: markdown-path is set to $MARKDOWN_PATH"
+
+      - name: Assert failing output is set
+        env:
+          FAILING: ${{ steps.action.outputs.failing }}
+        run: |
+          echo "failing: $FAILING"
+          if [ -z "$FAILING" ]; then
+            echo "FAIL: failing output was not set"
+            exit 1
+          fi
+          if [ "$FAILING" != "true" ] && [ "$FAILING" != "false" ]; then
+            echo "FAIL: failing output must be 'true' or 'false', got: $FAILING"
+            exit 1
+          fi
+          echo "PASS: failing output is '$FAILING'"

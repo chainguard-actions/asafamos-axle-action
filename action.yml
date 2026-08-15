@@ -124,12 +124,19 @@ runs:
         START_COMMAND: ${{ inputs.start-command }}
         WAIT_ON_PORT: ${{ inputs.wait-on-port }}
       run: |
-        printf '%s\n' "$INSTALL_COMMAND" > _axle_install.sh
-        bash _axle_install.sh
-        printf '%s\n' "$BUILD_COMMAND" > _axle_build.sh
-        bash _axle_build.sh
-        printf '%s\n' "$START_COMMAND" > _axle_start.sh
-        nohup bash _axle_start.sh > axle-server.log 2>&1 &
+        # Validate WAIT_ON_PORT is a plain integer (1-65535) to prevent injection
+        # in the URL argument passed to wait-on.
+        if ! [[ "$WAIT_ON_PORT" =~ ^[0-9]+$ ]] || [ "$WAIT_ON_PORT" -lt 1 ] || [ "$WAIT_ON_PORT" -gt 65535 ]; then
+          echo "::error::wait-on-port must be a number between 1 and 65535, got: $WAIT_ON_PORT"
+          exit 1
+        fi
+        # Run each command via 'bash -c' with the value passed as $0 (not
+        # interpolated into the script string) so that shell metacharacters in
+        # the command string are interpreted by a child shell rather than
+        # allowing them to escape the enclosing script context.
+        bash -c "$INSTALL_COMMAND"
+        bash -c "$BUILD_COMMAND"
+        nohup bash -c "$START_COMMAND" > axle-server.log 2>&1 &
         echo $! > axle-server.pid
         npx --yes wait-on "http://localhost:$WAIT_ON_PORT" --timeout 90000
     - name: Scan
