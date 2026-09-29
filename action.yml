@@ -88,12 +88,10 @@ runs:
     - name: Resolve axle CLI package root
       id: axle-pkg
       shell: bash
-      env:
-        ACTION_PATH: ${{ github.action_path }}
       run: |
-        # Composite actions expose their own source tree via github.action_path.
+        # Composite actions expose their own source tree via GITHUB_ACTION_PATH.
         # The CLI bundle ships next to this action.yml under ./cli.
-        safe=$(printf '%s' "$ACTION_PATH" | tr -d '\n\r')
+        safe=$(printf '%s' "$GITHUB_ACTION_PATH" | tr -d '\n\r')
         echo "dir=${safe}/cli" >> "$GITHUB_OUTPUT"
     - name: Install axle CLI dependencies
       shell: bash
@@ -124,24 +122,22 @@ runs:
         INPUT_START_COMMAND: ${{ inputs.start-command }}
         INPUT_WAIT_ON_PORT: ${{ inputs.wait-on-port }}
       run: |
-        install_args=()
+        install_cmd=(); build_cmd=(); start_cmd=()
         if [ -n "$INPUT_INSTALL_COMMAND" ]; then
-          while IFS= read -r -d '' t; do install_args+=("$t"); done \
+          while IFS= read -r -d '' t; do install_cmd+=("$t"); done \
             < <(printf '%s' "$INPUT_INSTALL_COMMAND" | xargs printf '%s\0')
         fi
-        build_args=()
         if [ -n "$INPUT_BUILD_COMMAND" ]; then
-          while IFS= read -r -d '' t; do build_args+=("$t"); done \
+          while IFS= read -r -d '' t; do build_cmd+=("$t"); done \
             < <(printf '%s' "$INPUT_BUILD_COMMAND" | xargs printf '%s\0')
         fi
-        start_args=()
         if [ -n "$INPUT_START_COMMAND" ]; then
-          while IFS= read -r -d '' t; do start_args+=("$t"); done \
+          while IFS= read -r -d '' t; do start_cmd+=("$t"); done \
             < <(printf '%s' "$INPUT_START_COMMAND" | xargs printf '%s\0')
         fi
-        "${install_args[@]}"
-        "${build_args[@]}"
-        nohup "${start_args[@]}" > axle-server.log 2>&1 &
+        "${install_cmd[@]}"
+        "${build_cmd[@]}"
+        nohup "${start_cmd[@]}" > axle-server.log 2>&1 &
         echo $! > axle-server.pid
         npx --yes wait-on "http://localhost:$INPUT_WAIT_ON_PORT" --timeout 90000
     - name: Scan
