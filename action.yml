@@ -119,27 +119,31 @@ runs:
       if: inputs.url == ''
       shell: bash
       env:
-        INSTALL_COMMAND: ${{ inputs.install-command }}
-        BUILD_COMMAND: ${{ inputs.build-command }}
-        START_COMMAND: ${{ inputs.start-command }}
-        WAIT_ON_PORT: ${{ inputs.wait-on-port }}
+        INPUT_INSTALL_COMMAND: ${{ inputs.install-command }}
+        INPUT_BUILD_COMMAND: ${{ inputs.build-command }}
+        INPUT_START_COMMAND: ${{ inputs.start-command }}
+        INPUT_WAIT_ON_PORT: ${{ inputs.wait-on-port }}
       run: |
-        _install_script=$(mktemp)
-        printf '%s\n' "$INSTALL_COMMAND" > "$_install_script"
-        bash "$_install_script"
-        rm -f "$_install_script"
-
-        _build_script=$(mktemp)
-        printf '%s\n' "$BUILD_COMMAND" > "$_build_script"
-        bash "$_build_script"
-        rm -f "$_build_script"
-
-        _start_script=$(mktemp)
-        printf '%s\n' "$START_COMMAND" > "$_start_script"
-        bash "$_start_script" > axle-server.log 2>&1 &
+        install_args=()
+        if [ -n "$INPUT_INSTALL_COMMAND" ]; then
+          while IFS= read -r -d '' t; do install_args+=("$t"); done \
+            < <(printf '%s' "$INPUT_INSTALL_COMMAND" | xargs printf '%s\0')
+        fi
+        build_args=()
+        if [ -n "$INPUT_BUILD_COMMAND" ]; then
+          while IFS= read -r -d '' t; do build_args+=("$t"); done \
+            < <(printf '%s' "$INPUT_BUILD_COMMAND" | xargs printf '%s\0')
+        fi
+        start_args=()
+        if [ -n "$INPUT_START_COMMAND" ]; then
+          while IFS= read -r -d '' t; do start_args+=("$t"); done \
+            < <(printf '%s' "$INPUT_START_COMMAND" | xargs printf '%s\0')
+        fi
+        "${install_args[@]}"
+        "${build_args[@]}"
+        nohup "${start_args[@]}" > axle-server.log 2>&1 &
         echo $! > axle-server.pid
-
-        npx --yes wait-on "http://localhost:$WAIT_ON_PORT" --timeout 90000
+        npx --yes wait-on "http://localhost:$INPUT_WAIT_ON_PORT" --timeout 90000
     - name: Scan
       id: run
       shell: bash
