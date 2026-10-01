@@ -192,7 +192,7 @@ runs:
           axle-server.log
     - name: Comment on PR
       if: always() && github.event_name == 'pull_request' && inputs.comment-on-pr == 'true'
-      uses: chainguard-actions/actions-github-script@c016e3163cf6a74fc76e781c8239af596ae9b9b7 # v7
+      uses: chainguard-actions/actions-github-script@2b8beddf2d0d1ba8e353f16cae078671866153e7 # v7
       with:
         github-token: ${{ inputs.github-token }}
         script: |
