@@ -82,7 +82,7 @@ runs:
         curl "${args[@]}" \
           -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
           "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
-    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+    - uses: chainguard-actions/actions-setup-node@031fc9bd73e651da81e6a7294b2af29e64d5f39c # v4
       with:
         node-version: "22"
     - name: Resolve axle CLI package root
@@ -93,15 +93,15 @@ runs:
       run: |
         # Composite actions expose their own source tree via github.action_path.
         # The CLI bundle ships next to this action.yml under ./cli.
-        safe=$(printf '%s' "$ACTION_PATH" | tr -d '\n\r')
-        echo "dir=${safe}/cli" >> "$GITHUB_OUTPUT"
+        safe_action_path="$(printf '%s' "$ACTION_PATH" | tr -d '\n\r')"
+        echo "dir=${safe_action_path}/cli" >> "$GITHUB_OUTPUT"
     - name: Install axle CLI dependencies
       shell: bash
       working-directory: ${{ steps.axle-pkg.outputs.dir }}
       run: npm ci --omit=optional
     - name: Cache Playwright browsers
       id: pw
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      uses: chainguard-actions/actions-cache@1a492a110f951652a0d2d3327bc20ee36867788e # v4
       with:
         path: ~/.cache/ms-playwright
         key: axle-playwright-${{ runner.os }}-${{ hashFiles(format('{0}/package-lock.json', steps.axle-pkg.outputs.dir)) }}
@@ -119,16 +119,25 @@ runs:
       if: inputs.url == ''
       shell: bash
       env:
-        INSTALL_COMMAND: ${{ inputs.install-command }}
-        BUILD_COMMAND: ${{ inputs.build-command }}
-        START_COMMAND: ${{ inputs.start-command }}
-        WAIT_ON_PORT: ${{ inputs.wait-on-port }}
+        INPUT_INSTALL_COMMAND: ${{ inputs.install-command }}
+        INPUT_BUILD_COMMAND: ${{ inputs.build-command }}
+        INPUT_START_COMMAND: ${{ inputs.start-command }}
+        INPUT_WAIT_ON_PORT: ${{ inputs.wait-on-port }}
       run: |
-        bash -c "$INSTALL_COMMAND"
-        bash -c "$BUILD_COMMAND"
-        nohup bash -c "$START_COMMAND" > axle-server.log 2>&1 &
+        _install_script="$(mktemp)"
+        printf '%s\n' "$INPUT_INSTALL_COMMAND" > "$_install_script"
+        bash -eo pipefail "$_install_script"
+
+        _build_script="$(mktemp)"
+        printf '%s\n' "$INPUT_BUILD_COMMAND" > "$_build_script"
+        bash -eo pipefail "$_build_script"
+
+        _start_script="$(mktemp)"
+        printf '%s\n' "$INPUT_START_COMMAND" > "$_start_script"
+        nohup bash -eo pipefail "$_start_script" > axle-server.log 2>&1 &
         echo $! > axle-server.pid
-        npx --yes wait-on "http://localhost:$WAIT_ON_PORT" --timeout 90000
+
+        npx --yes wait-on "http://localhost:$INPUT_WAIT_ON_PORT" --timeout 90000
     - name: Scan
       id: run
       shell: bash
@@ -173,7 +182,7 @@ runs:
         fi
     - name: Upload report
       if: always()
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      uses: chainguard-actions/actions-upload-artifact@61ae9717c37cd5ac5fcaa5599c0dab961d043ecc # v4
       with:
         name: axle-report-${{ github.run_id }}
         path: |
@@ -182,7 +191,7 @@ runs:
           axle-server.log
     - name: Comment on PR
       if: always() && github.event_name == 'pull_request' && inputs.comment-on-pr == 'true'
-      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      uses: chainguard-actions/actions-github-script@2b8beddf2d0d1ba8e353f16cae078671866153e7 # v7
       with:
         github-token: ${{ inputs.github-token }}
         script: |

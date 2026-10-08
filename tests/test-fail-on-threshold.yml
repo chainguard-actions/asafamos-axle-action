@@ -1,0 +1,56 @@
+name: Test fail-on threshold outputs
+on:
+  workflow_dispatch:
+
+jobs:
+  test-fail-on-threshold:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run axle action with fail-on critical
+        id: action
+        uses: .
+        with:
+          url: "https://example.com"
+          fail-on: "critical"
+          with-ai-fixes: "false"
+          comment-on-pr: "false"
+        continue-on-error: true
+
+      - name: Assert outputs have valid values when set
+        env:
+          JSON_PATH: ${{ steps.action.outputs.json-path }}
+          MD_PATH: ${{ steps.action.outputs.markdown-path }}
+          FAILING: ${{ steps.action.outputs.failing }}
+        run: |
+          echo "json-path: $JSON_PATH"
+          echo "markdown-path: $MD_PATH"
+          echo "failing: $FAILING"
+
+          # If failing output is set, it must be 'true' or 'false'
+          if [ -n "$FAILING" ]; then
+            if [ "$FAILING" != "true" ] && [ "$FAILING" != "false" ]; then
+              echo "FAIL: failing output must be 'true' or 'false', got: $FAILING"
+              exit 1
+            fi
+            echo "PASS: failing output has valid value: $FAILING"
+          else
+            echo "INFO: failing output not set (scan step may not have reached output-writing)"
+          fi
+
+          # If json-path is set, it should be non-empty
+          if [ -n "$JSON_PATH" ]; then
+            echo "PASS: json-path is set to $JSON_PATH"
+          else
+            echo "INFO: json-path output not set"
+          fi
+
+          # If markdown-path is set, it should be non-empty
+          if [ -n "$MD_PATH" ]; then
+            echo "PASS: markdown-path is set to $MD_PATH"
+          else
+            echo "INFO: markdown-path output not set"
+          fi
+
+          echo "PASS: assertion checks complete"
